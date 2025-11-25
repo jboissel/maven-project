@@ -1,0 +1,50 @@
+pipeline {
+    agent {
+        label { label 'master' }
+    }
+
+    stages {
+        stage('Clone code base') {
+            steps {
+                echo 'Cloning from github'
+                git (url: 'https://github.com/jboissel/maven-project.git',
+                branch: 'master', credentialsId: 'cred4github')
+            }
+        }
+        
+        stage('Compile and testing') {
+            steps {
+                echo 'Compiling and Unit Testing'
+                withMaven(maven : 'localMAVEN') {
+                sh 'mvn clean test'
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                echo 'Create package application'
+                withMaven(maven : 'localMAVEN') {
+                sh 'mvn -B -DskipTests clean package'
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {echo 'Qualimetry Analysis by SonarQube'
+            withSonarQubeEnv(installationName: 'serverSonar', credentialsId: 'cred4sonar') {
+                sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                echo 'Deploying On Staging'
+                withMaven(maven : 'localMAVEN') {
+                sh 'mvn install'
+                }
+            }
+        }
+    }
+}
